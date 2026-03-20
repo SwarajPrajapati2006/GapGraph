@@ -112,7 +112,9 @@ export default function UploadPage() {
       setLoaderStep(loaderSteps.length - 1); // Done
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analysis failed");
+      if (!res.ok) {
+        throw new Error(data.message ? `Analysis Engine: ${data.message}` : (data.error || "Analysis failed"));
+      }
 
       setAnalysisResult(data);
       router.push("/dashboard");
