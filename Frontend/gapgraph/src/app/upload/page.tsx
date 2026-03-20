@@ -58,19 +58,38 @@ export default function UploadPage() {
     [uploadedFiles, setUploadedFiles]
   );
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     setIsLoading(true);
     setLoaderStep(0);
-    let step = 0;
+
     const interval = setInterval(() => {
-      step++;
-      if (step >= loaderSteps.length) {
-        clearInterval(interval);
-        setTimeout(() => router.push("/dashboard"), 500);
-      } else {
-        setLoaderStep(step);
-      }
-    }, 700);
+      setLoaderStep((prev) => (prev < loaderSteps.length - 1 ? prev + 1 : prev));
+    }, 1500);
+
+    try {
+      const formData = new FormData();
+      if (uploadedFiles.resume) formData.append("resume", uploadedFiles.resume);
+      if (jdText) formData.append("jdText", jdText);
+
+      const res = await fetch("http://localhost:3001/api/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Analysis failed");
+      
+      const result = await res.json();
+      console.log("Analysis Result:", result);
+
+      clearInterval(interval);
+      setLoaderStep(loaderSteps.length);
+      setTimeout(() => router.push("/dashboard"), 500);
+    } catch (error) {
+      console.error(error);
+      clearInterval(interval);
+      setIsLoading(false);
+      alert("Failed to analyze profile.");
+    }
   };
 
   return (
