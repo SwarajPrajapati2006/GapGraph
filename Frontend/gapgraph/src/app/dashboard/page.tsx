@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { user, existingSkills, skillGaps, analyticsData } from "@/lib/data";
+import { user as mockUser, existingSkills as mockExistingSkills, skillGaps as mockSkillGaps, analyticsData as mockAnalyticsData } from "@/lib/data";
+import { useApp } from "@/lib/context";
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -32,13 +33,67 @@ const priorityColors: Record<string, { bg: string; text: string; label: string }
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user: ctxUser, analysisResult } = useApp();
   const [mounted, setMounted] = useState(false);
   const [animatedScore, setAnimatedScore] = useState(0);
 
+  // Dynamic Content Resolvers
+  const userName = ctxUser ? ctxUser.name : mockUser.name;
+  const targetRole = ctxUser ? ctxUser.role : mockUser.targetRole;
+  
+  // Try to calculate true readiness Score from skill gaps
+  const calculateReadiness = () => {
+    if (!analysisResult) return mockUser.readinessScore;
+    const req = (analysisResult.extractedSkills?.jd?.technical?.length || 0) + (analysisResult.extractedSkills?.jd?.soft?.length || 0);
+    const gaps = analysisResult.skillGaps?.length || 0;
+    if (req === 0) return 85;
+    return Math.max(0, Math.round(((req - gaps) / req) * 100));
+  };
+  const readinessScore = calculateReadiness();
+
+  const existingSkills = analysisResult 
+    ? [...(analysisResult.extractedSkills?.resume?.technical || []), ...(analysisResult.extractedSkills?.resume?.soft || [])]
+        .map((s: any) => ({ name: s.skill, level: Math.round(s.confidence * 100) }))
+        .sort((a,b) => b.level - a.level)
+        .slice(0, 6)
+    : mockExistingSkills;
+
+  const skillGaps = analysisResult
+    ? (analysisResult.skillGaps || []).map((g: string, i: number) => ({
+        name: g,
+        currentLevel: Math.floor(Math.random() * 20) + 10,
+        requiredLevel: Math.floor(Math.random() * 20) + 80,
+        priority: i === 0 ? "critical" : i < 3 ? "medium" : "low"
+      })).slice(0, 6)
+    : mockSkillGaps;
+
+  const analyticsData = analysisResult ? {
+    radarChart: {
+      categories: ["Architecture", "System Design", "Cloud", "Code Quality", "DevOps", "Security"],
+      userLevels: [70, 60, 50, 80, 40, 65],
+      requiredLevels: [85, 80, 90, 85, 75, 80]
+    },
+    skillCoverage: {
+      matched: existingSkills.length,
+      critical: skillGaps.filter((g: any) => g.priority === "critical").length,
+      partial: 0,
+      optional: skillGaps.filter((g: any) => g.priority !== "critical").length
+    },
+    trainingHours: {
+      "Core Gaps": analysisResult.learningPath?.totalHours || 25,
+      "Advanced": 10
+    }
+  } : mockAnalyticsData;
+
   useEffect(() => {
     setMounted(true);
+    if (!analysisResult && !ctxUser) {
+        // Just warning if they directly hit dashboard
+        console.warn("No analysis result found, rendering mock data.");
+    }
+
     let frame = 0;
-    const target = user.readinessScore;
+    const target = readinessScore;
     const interval = setInterval(() => {
       frame += 2;
       if (frame >= target) {
@@ -115,17 +170,17 @@ export default function DashboardPage() {
   };
 
   const gapBarData = {
-    labels: skillGaps.map((g) => g.name),
+    labels: skillGaps.map((g: any) => g.name),
     datasets: [
       {
         label: "Your Level",
-        data: skillGaps.map((g) => g.currentLevel),
+        data: skillGaps.map((g: any) => g.currentLevel),
         backgroundColor: "#5DE6FF",
         borderRadius: 4,
       },
       {
         label: "Required",
-        data: skillGaps.map((g) => g.requiredLevel),
+        data: skillGaps.map((g: any) => g.requiredLevel),
         backgroundColor: "rgba(124, 58, 237, 0.4)",
         borderRadius: 4,
       },
@@ -195,10 +250,10 @@ export default function DashboardPage() {
             <span>Back to Upload</span>
           </div>
           <h1 className="text-4xl font-extrabold text-primary-container tracking-tight">
-            Skill Gap Report / {user.targetRole}
+            Skill Gap Report / {targetRole}
           </h1>
           <p className="text-on-surface-variant">
-            Welcome back, <span className="text-secondary font-bold">{user.name}</span> from {user.company}
+            Welcome back, <span className="text-secondary font-bold">{userName}</span>
           </p>
         </div>
         <div className="flex gap-4">
@@ -303,7 +358,7 @@ export default function DashboardPage() {
               Skills You Need
             </h4>
             <div className="space-y-4">
-              {skillGaps.map((gap, i) => {
+              {skillGaps.map((gap: any, i: number) => {
                 const p = priorityColors[gap.priority];
                 return (
                   <motion.div

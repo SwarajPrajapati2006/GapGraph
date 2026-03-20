@@ -72,28 +72,54 @@ export default function UploadPage() {
     [uploadedFiles, setUploadedFiles]
   );
 
-  const handleAnalyze = () => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+  const { user, setAnalysisResult } = useApp();
+
+  const handleAnalyze = async () => {
+    if (!uploadedFiles.resume) return alert("Please upload a resume.");
+    
     setIsLoading(true);
     setLoaderStep(0);
     
-    // Dynamically insert a new recent comparison for this session
     addComparison({
       name: `${selectedCompany} • ${selectedRole}`,
-      match: `${Math.floor(Math.random() * 40) + 50}%`,
+      match: "Analyzing...",
       time: "Just now",
-      color: "text-success",
+      color: "text-warning",
     });
 
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      if (step >= loaderSteps.length) {
-        clearInterval(interval);
-        setTimeout(() => router.push("/dashboard"), 500);
-      } else {
+    try {
+      const formData = new FormData();
+      formData.append("resume", uploadedFiles.resume);
+      if (uploadedFiles.jd) formData.append("jd", uploadedFiles.jd);
+      if (jdText) formData.append("jdText", jdText);
+      if (user?.id) formData.append("userId", user.id);
+
+      // Simple mock loader
+      let step = 0;
+      const interval = setInterval(() => {
+        step = Math.min(step + 1, loaderSteps.length - 1);
         setLoaderStep(step);
-      }
-    }, 700);
+      }, 1500);
+
+      const res = await fetch(`${API_URL}/api/analyze`, {
+        method: "POST",
+        body: formData,
+      });
+
+      clearInterval(interval);
+      setLoaderStep(loaderSteps.length - 1); // Done
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Analysis failed");
+
+      setAnalysisResult(data);
+      router.push("/dashboard");
+    } catch (error: any) {
+      alert(error.message);
+      setIsLoading(false);
+    }
   };
 
   return (

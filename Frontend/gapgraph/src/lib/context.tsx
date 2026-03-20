@@ -18,8 +18,11 @@ interface AppContextType {
   uploadedFiles: { resume: File | null; jd: File | null };
   setUploadedFiles: (files: { resume: File | null; jd: File | null }) => void;
   isLoggedIn: boolean;
-  login: () => void;
+  user: any | null;
+  login: (userArgs?: any) => void;
   logout: () => void;
+  analysisResult: any | null;
+  setAnalysisResult: (data: any | null) => void;
   profileImage: string | null;
   setProfileImage: (url: string | null) => void;
   recentComparisons: Comparison[];
@@ -35,6 +38,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedRole, setSelectedRole] = useState("Software Engineer");
   const [uploadedFiles, setUploadedFiles] = useState<{ resume: File | null; jd: File | null }>({ resume: null, jd: null });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<any | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<any | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [recentComparisons, setRecentComparisons] = useState<Comparison[]>([
     { name: "Google L5", match: "72%", time: "2 days ago", color: "text-secondary" },
@@ -69,9 +74,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRecentComparisons((prev) => [comp, ...prev].slice(0, 5));
   }, []);
 
-  const login = () => setIsLoggedIn(true);
+  const login = (userData?: any) => {
+    setIsLoggedIn(true);
+    if (userData) setUser(userData);
+  };
   const logout = () => {
     setIsLoggedIn(false);
+    setUser(null);
+    setAnalysisResult(null);
     setCompletedModules(new Set());
     setProfileImage(null);
   };
@@ -87,8 +97,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         uploadedFiles,
         setUploadedFiles,
         isLoggedIn,
+        user,
         login,
         logout,
+        analysisResult,
+        setAnalysisResult,
         profileImage,
         setProfileImage,
         recentComparisons,

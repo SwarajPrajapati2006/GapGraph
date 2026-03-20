@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import dotenv from "dotenv";
+import { PrismaClient } from "@prisma/client";
 import { DiagnoserService } from "./services/diagnoser.service";
 import { PlannerService } from "./services/planner.service";
 import { CriticService } from "./services/critic.service";
@@ -10,6 +11,7 @@ import { ReasoningTracer } from "./utils/reasoning-tracer";
 dotenv.config();
 
 const server = Fastify({ logger: true });
+const prisma = new PrismaClient();
 
 // --- Services ---
 const diagnoser = new DiagnoserService();
@@ -57,12 +59,44 @@ async function main() {
                 })
             );
 
-            // Cleanup on close
             request.raw.on("close", () => {
                 sseClients.delete(sessionId);
             });
         }
     );
+
+    // ============================================================
+    // AUTH ENDPOINTS: /api/auth/signup & /api/auth/login
+    // ============================================================
+    server.post("/api/auth/signup", async (request, reply) => {
+        try {
+            const { name, email, password, role } = request.body as any;
+            if (!email || !password) return reply.status(400).send({ error: "Email and password required" });
+            
+            const existingUser = await prisma.user.findUnique({ where: { email } });
+            if (existingUser) return reply.status(400).send({ error: "Email already in use" });
+
+            const user = await prisma.user.create({
+                data: { name, email, password, role: role || "Developer" }
+            });
+            return reply.send({ message: "User created", user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+        } catch (error: any) {
+            return reply.status(500).send({ error: "Signup failed", details: error.message });
+        }
+    });
+
+    server.post("/api/auth/login", async (request, reply) => {
+        try {
+            const { email, password } = request.body as any;
+            const user = await prisma.user.findUnique({ where: { email } });
+            if (!user || user.password !== password) {
+                return reply.status(401).send({ error: "Invalid email or password" });
+            }
+            return reply.send({ message: "Logged in", user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+        } catch (error: any) {
+            return reply.status(500).send({ error: "Login failed", details: error.message });
+        }
+    });
 
     // ============================================================
     // POST /api/analyze
@@ -87,11 +121,11 @@ async function main() {
                 "Receiving uploaded documents"
             );
 
-            // Parse multipart form data
             const parts = request.parts();
             let resumeBuffer: Buffer | null = null;
             let resumeFilename = "unknown.pdf";
             let jdText = "";
+            let userId = "";
 
             for await (const part of parts) {
                 if (part.type === "file" && part.fieldname === "resume") {
@@ -99,6 +133,8 @@ async function main() {
                     resumeFilename = part.filename || "resume.pdf";
                 } else if (part.type === "field" && part.fieldname === "jdText") {
                     jdText = part.value as string;
+                } else if (part.type === "field" && part.fieldname === "userId") {
+                    userId = part.value as string;
                 }
             }
 
@@ -202,6 +238,40 @@ async function main() {
                 validationReport: criticResult.validationReport,
                 reasoningTrace: tracer.getSteps(),
             };
+
+            // Database Persistence
+            if (userId) {
+                try {
+                    tracer.addStep("Saving data to Postgres Database", "Upserting Profile and Roadmap");
+
+                    await prisma.profile.upsert({
+                        where: { userId },
+                        update: { resumeText, extractedSkills: result.extractedSkills as any },
+                        create: { userId, resumeText, extractedSkills: result.extractedSkills as any }
+                    });
+
+                    // Fetch user's target role to associate context
+                    const userRecord = await prisma.user.findUnique({ where: { id: userId } });
+                    const targetRole = userRecord?.role || "Developer";
+
+                    // The readiness score calculates coverage of Matched vs Total JD skills
+                    const totalRequired = jdSkills.technical.length + jdSkills.soft.length;
+                    const matchedScore = totalRequired > 0 ? ((totalRequired - skillGaps.length) / totalRequired) * 100 : 85;
+
+                    await prisma.roadmap.create({
+                        data: {
+                            userId,
+                            role: targetRole,
+                            readinessScore: Math.round(matchedScore),
+                            modules: result.learningPath.nodes as any
+                        }
+                    });
+                     tracer.addStep("Database insertion successful", "Pipeline complete");
+                } catch (dbError: any) {
+                    tracer.addStep("Database insertion failed", dbError.message);
+                    console.error("Database save failed: ", dbError);
+                }
+            }
 
             // Signal SSE stream completion
             const sendEvent = sseClients.get(sessionId);

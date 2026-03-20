@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { modules } from "@/lib/data";
+import { modules as mockModules } from "@/lib/data";
 import { useApp } from "@/lib/context";
 import { useToast } from "@/components/Toast";
 
@@ -16,8 +16,20 @@ const phaseBorders = ["border-[#FBBF24]", "border-primary-container", "border-se
 
 export default function RoadmapPage() {
   const router = useRouter();
-  const { completedModules, overallProgress, toggleModule } = useApp();
+  const { completedModules, overallProgress, toggleModule, analysisResult } = useApp();
   const { showToast } = useToast();
+
+  const dynamicModules = analysisResult?.learningPath?.nodes?.map((node: any, i: number) => ({
+    id: i + 1,
+    title: node.title,
+    phase: i < 2 ? 1 : i < 4 ? 2 : 3, // Group into phases dynamically
+    hours: node.durationHours || 4,
+    category: node.skillsCovered[0] || "Engineering",
+    priority: i === 0 ? "critical" : i < 3 ? "medium" : "low",
+    resources: [{ title: `${node.title} - Official Course` }, { title: "Hands-on Workshop" }]
+  }));
+
+  const modules = dynamicModules || mockModules;
 
   const phases = [
     { num: 1, title: "Phase 1: Critical Foundations", subtitle: "Week 1-2" },
@@ -128,7 +140,7 @@ export default function RoadmapPage() {
       {/* Roadmap Phases */}
       <div className="space-y-16">
         {phases.map((phase, pi) => {
-          const phaseModules = modules.filter((m) => m.phase === phase.num);
+          const phaseModules = modules.filter((m: any) => m.phase === phase.num);
           return (
             <section key={phase.num}>
               <div className="flex items-center gap-4 mb-8">
@@ -144,7 +156,7 @@ export default function RoadmapPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {phaseModules.map((mod, mi) => {
+                {phaseModules.map((mod: any, mi: number) => {
                   const isDone = completedModules.has(mod.id);
                   const p = priorityColors[mod.priority];
                   return (
@@ -192,7 +204,7 @@ export default function RoadmapPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        {mod.resources.slice(0, 2).map((r) => (
+                        {mod.resources.slice(0, 2).map((r: any) => (
                           <button
                             key={r.title}
                             onClick={() => router.push(`/module/${mod.id}`)}
