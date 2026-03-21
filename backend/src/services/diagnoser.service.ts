@@ -17,6 +17,15 @@ export interface ExtractedSkills {
         socCode: string | null;
         socTitle: string | null;
     }>;
+    experience: Array<{
+        role: string;
+        company: string;
+        years: number;
+    }>;
+    projects: Array<{
+        name: string;
+        description: string;
+    }>;
 }
 
 const ZERO_SHOT_NER_PROMPT = `You are a world-class Named Entity Recognition (NER) system specialized in extracting skills from resumes and job descriptions.
@@ -40,6 +49,12 @@ OUTPUT FORMAT:
   "soft": [
     {"skill": "leadership", "confidence": 0.8},
     {"skill": "communication", "confidence": 0.7}
+  ],
+  "experience": [
+    {"role": "Senior Developer", "company": "Tech Corp", "years": 4}
+  ],
+  "projects": [
+    {"name": "E-commerce Platform", "description": "Built scalable backend"}
   ]
 }
 
@@ -90,6 +105,13 @@ export class DiagnoserService {
                 ],
                 soft: [
                     { skill: "Communication", confidence: 0.80, socCode: null, socTitle: null }
+                ],
+                experience: [
+                    { role: "Software Engineer", company: "TechCorp India", years: 3 }
+                ],
+                projects: [
+                    { name: "Scalable Microservices Backend", description: "Migrated monolithic application to Spring Boot microservices, improving uptime by 40%." },
+                    { name: "Real-time Analytics Dashboard", description: "Built with React and WebSocket for live data monitoring." }
                 ]
             };
         }
@@ -114,6 +136,8 @@ export class DiagnoserService {
         let parsed: {
             technical: Array<{ skill: string; confidence: number }>;
             soft: Array<{ skill: string; confidence: number }>;
+            experience?: Array<{ role: string; company: string; years: number }>;
+            projects?: Array<{ name: string; description: string }>;
         };
 
         try {
@@ -129,7 +153,7 @@ export class DiagnoserService {
                 "Failed to parse LLM response as JSON",
                 "Returning empty skill set"
             );
-            return { technical: [], soft: [] };
+            return { technical: [], soft: [], experience: [], projects: [] };
         }
 
         tracer.addStep(
@@ -163,7 +187,12 @@ export class DiagnoserService {
             "Skill extraction complete"
         );
 
-        return { technical, soft };
+        return { 
+            technical, 
+            soft, 
+            experience: parsed.experience || [], 
+            projects: parsed.projects || [] 
+        };
     }
 
     /**
@@ -182,7 +211,9 @@ export class DiagnoserService {
                     { skill: "LangGraph", confidence: 1.0, socCode: null, socTitle: null },
                     { skill: "ChromaDB", confidence: 0.95, socCode: null, socTitle: null }
                 ],
-                soft: []
+                soft: [],
+                experience: [],
+                projects: []
             };
         }
 

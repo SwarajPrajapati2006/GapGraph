@@ -16,7 +16,7 @@ const loaderSteps = [
 
 export default function UploadPage() {
   const router = useRouter();
-  const { selectedRole, setSelectedRole, uploadedFiles, setUploadedFiles } = useApp();
+  const { selectedRole, setSelectedRole, uploadedFiles, setUploadedFiles, isLoggedIn } = useApp();
   const [resumeName, setResumeName] = useState<string | null>(null);
   const [jdName, setJdName] = useState<string | null>(null);
   const [jdText, setJdText] = useState("");
@@ -28,6 +28,10 @@ export default function UploadPage() {
   const handleFileDrop = useCallback(
     (type: "resume" | "jd") => (e: React.DragEvent) => {
       e.preventDefault();
+      if (!isLoggedIn) {
+        router.push("/login");
+        return;
+      }
       const file = e.dataTransfer.files[0];
       if (file) {
         if (type === "resume") {
@@ -44,6 +48,10 @@ export default function UploadPage() {
 
   const handleFileSelect = useCallback(
     (type: "resume" | "jd") => (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!isLoggedIn) {
+        router.push("/login");
+        return;
+      }
       const file = e.target.files?.[0];
       if (file) {
         if (type === "resume") {
@@ -58,7 +66,13 @@ export default function UploadPage() {
     [uploadedFiles, setUploadedFiles]
   );
 
+  const { analysisResult, setAnalysisResult } = useApp();
+
   const handleAnalyze = async () => {
+    if (!isLoggedIn) {
+      router.push("/login");
+      return;
+    }
     setIsLoading(true);
     setLoaderStep(0);
 
@@ -81,10 +95,12 @@ export default function UploadPage() {
       
       const result = await res.json();
       console.log("Analysis Result:", result);
+      setAnalysisResult(result);
 
       clearInterval(interval);
       setLoaderStep(loaderSteps.length);
-      setTimeout(() => router.push("/dashboard"), 500);
+      setIsLoading(false);
+      // Removed automatic routing so the user can see the extracted data in the sidebar
     } catch (error) {
       console.error(error);
       clearInterval(interval);
@@ -138,9 +154,9 @@ export default function UploadPage() {
         </div>
       )}
 
-      <div className="max-w-[1440px] mx-auto px-6 py-12 md:py-20 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className={`max-w-[1440px] mx-auto px-6 py-12 md:py-20 grid grid-cols-1 ${analysisResult ? 'lg:grid-cols-12' : 'lg:grid-cols-8 justify-center'} gap-8 transition-all duration-700`}>
         {/* Main Content */}
-        <div className="lg:col-span-8 space-y-12">
+        <div className={`${analysisResult ? 'lg:col-span-8' : 'lg:col-span-8 w-full max-w-4xl mx-auto'} space-y-12 transition-all duration-700`}>
           {/* Hero */}
           <header className="space-y-4">
             <h1 className="text-5xl md:text-7xl font-extrabold text-primary-container tracking-tight leading-none">
@@ -162,7 +178,10 @@ export default function UploadPage() {
                 className="group relative flex flex-col items-center justify-center h-64 bg-[#111827] border-2 border-dashed border-primary-container/40 rounded-xl hover:border-secondary transition-all cursor-pointer overflow-hidden"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleFileDrop("resume")}
-                onClick={() => resumeRef.current?.click()}
+                onClick={() => {
+                  if (!isLoggedIn) router.push("/login");
+                  else resumeRef.current?.click();
+                }}
               >
                 <div className="absolute inset-0 faint-grid opacity-10" />
                 <input
@@ -194,7 +213,10 @@ export default function UploadPage() {
                 className="group relative flex flex-col items-center justify-center h-64 bg-[#111827] border-2 border-dashed border-primary-container/40 rounded-xl hover:border-secondary transition-all cursor-pointer overflow-hidden"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleFileDrop("jd")}
-                onClick={() => jdRef.current?.click()}
+                onClick={() => {
+                  if (!isLoggedIn) router.push("/login");
+                  else jdRef.current?.click();
+                }}
               >
                 <div className="absolute inset-0 faint-grid opacity-10" />
                 <input
@@ -228,6 +250,9 @@ export default function UploadPage() {
               <textarea
                 value={jdText}
                 onChange={(e) => setJdText(e.target.value)}
+                onClick={() => {
+                  if (!isLoggedIn) router.push("/login");
+                }}
                 placeholder="Paste the job description text here..."
                 className="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant/30 focus:ring-0 focus:border-primary-container text-on-surface py-4 px-4 rounded-t-xl transition-all h-32 resize-none placeholder:text-on-surface-variant/40"
               />
@@ -242,7 +267,10 @@ export default function UploadPage() {
                 {roleOptions.map((role) => (
                   <button
                     key={role}
-                    onClick={() => setSelectedRole(role)}
+                    onClick={() => {
+                      if (!isLoggedIn) router.push("/login");
+                      else setSelectedRole(role);
+                    }}
                     className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                       selectedRole === role
                         ? "bg-primary-container text-on-primary-container shadow-lg shadow-primary-container/30"
@@ -264,7 +292,7 @@ export default function UploadPage() {
               <div className="space-y-8">
                 {["Systems Design", "Algorithmic Efficiency", "Cloud Architecture", "Concurrency Control", "Data Modeling"].map(
                   (skill) => (
-                    <SliderItem key={skill} label={skill} />
+                    <SliderItem key={skill} label={skill} isLoggedIn={isLoggedIn} router={router} />
                   )
                 )}
               </div>
@@ -273,14 +301,18 @@ export default function UploadPage() {
             {/* CTA */}
             <div className="flex items-center justify-between pt-6">
               <button
-                onClick={() => router.push("/dashboard")}
+                onClick={() => {
+                  if (!isLoggedIn) router.push("/login");
+                  else router.push("/dashboard");
+                }}
                 className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-semibold text-sm"
               >
                 View demo results →
               </button>
               <button
                 onClick={handleAnalyze}
-                className="pulse-gradient px-12 py-5 rounded-xl text-on-primary-container font-extrabold text-xl shadow-[0_0_30px_rgba(124,58,237,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.4)] hover:scale-[1.02] transition-all flex items-center gap-3"
+                disabled={isLoading}
+                className="pulse-gradient px-12 py-5 rounded-xl text-on-primary-container font-extrabold text-xl shadow-[0_0_30px_rgba(124,58,237,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.4)] hover:scale-[1.02] transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Analyze Profile
                 <span className="material-symbols-outlined">analytics</span>
@@ -289,63 +321,89 @@ export default function UploadPage() {
           </section>
         </div>
 
-        {/* Sidebar */}
-        <aside className="lg:col-span-4 space-y-6">
-          {/* Recent Comparisons */}
-          <div className="bg-surface-container p-6 rounded-xl relative overflow-hidden">
-            <div className="absolute inset-0 faint-grid opacity-5" />
-            <h4 className="text-violet-400 font-bold text-sm uppercase tracking-widest mb-6">
-              Recent Comparisons
-            </h4>
-            <div className="space-y-4">
-              {[
-                { name: "Google L5", match: "72%", time: "2 days ago", color: "text-secondary" },
-                { name: "Meta Senior E4", match: "64%", time: "5 days ago", color: "text-secondary" },
-                { name: "Amazon SDE III", match: "58%", time: "1 week ago", color: "text-on-surface" },
-              ].map((item, i) => (
-                <div
-                  key={item.name}
-                  className={`bg-surface-container-low p-4 rounded-lg flex items-center justify-between hover:bg-surface-container-high transition-all group ${
-                    i === 2 ? "opacity-60" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-surface-container-highest rounded-lg flex items-center justify-center">
-                      <span className="material-symbols-outlined text-primary-fixed-dim text-sm">apartment</span>
-                    </div>
-                    <div>
-                      <p className="text-on-surface font-bold text-sm">{item.name}</p>
-                      <p className="text-on-surface-variant text-xs">{item.time}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`${item.color} font-bold`}>{item.match}</p>
-                    <p className="text-[10px] text-on-surface-variant uppercase">Match</p>
+        {/* Sidebar - Extracted Data */}
+        {analysisResult && (
+          <motion.aside 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="lg:col-span-4 space-y-6"
+          >
+            <div className="bg-surface-container p-6 rounded-xl relative overflow-hidden shadow-xl border border-primary-container/20">
+              <div className="absolute inset-0 faint-grid opacity-5" />
+              <div className="flex justify-between items-center mb-6">
+                <h4 className="text-secondary font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg">document_scanner</span>
+                  Extraction Complete
+                </h4>
+                <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-success text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                </div>
+              </div>
+
+              {/* Experience */}
+              {analysisResult.extractedSkills.resume.experience?.length > 0 && (
+                <div className="mb-6">
+                  <h5 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Experience Found</h5>
+                  <div className="space-y-3">
+                    {analysisResult.extractedSkills.resume.experience.map((exp: any, i: number) => (
+                      <div key={i} className="bg-surface-container-low p-3 rounded-lg border-l-2 border-primary-container">
+                        <p className="text-sm font-bold text-on-surface">{exp.role}</p>
+                        <div className="flex justify-between items-center mt-1">
+                          <p className="text-xs text-on-surface-variant">{exp.company}</p>
+                          <p className="text-xs text-secondary font-medium">{exp.years} years</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-            <button className="w-full mt-8 py-3 rounded-lg border border-outline-variant/30 text-on-surface-variant text-sm font-semibold hover:bg-surface-container-highest transition-all flex items-center justify-center gap-2">
-              View Full History
-              <span className="material-symbols-outlined text-sm">history</span>
-            </button>
-          </div>
+              )}
 
-          {/* Pro Tip */}
-          <div className="bg-gradient-to-br from-primary-container/20 to-secondary/10 p-6 rounded-xl border border-primary-container/20">
-            <span className="material-symbols-outlined text-secondary mb-2">lightbulb</span>
-            <h5 className="text-on-surface font-bold mb-2">Pro Tip: Granular Precision</h5>
-            <p className="text-on-surface-variant text-xs leading-relaxed">
-              Our AI parses technical keywords 3x better when you upload original PDF formats instead of scanned images.
-            </p>
-          </div>
-        </aside>
+              {/* Projects */}
+              {analysisResult.extractedSkills.resume.projects?.length > 0 && (
+                <div className="mb-6">
+                  <h5 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Key Projects</h5>
+                  <div className="space-y-3">
+                    {analysisResult.extractedSkills.resume.projects.map((proj: any, i: number) => (
+                      <div key={i} className="bg-surface-container-low p-3 rounded-lg border-l-2 border-tertiary">
+                        <p className="text-sm font-bold text-on-surface">{proj.name}</p>
+                        <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{proj.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top Skills */}
+              {analysisResult.extractedSkills.resume.technical?.length > 0 && (
+                <div className="mb-6">
+                  <h5 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Top Skills Detected</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {analysisResult.extractedSkills.resume.technical.slice(0, 8).map((skill: any, i: number) => (
+                      <span key={i} className="px-2 py-1 bg-primary-container/10 text-primary-fixed-dim rounded text-xs font-medium border border-primary-container/20">
+                        {skill.skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button 
+                onClick={() => router.push("/dashboard")}
+                className="w-full mt-6 pulse-gradient py-3.5 rounded-lg text-on-primary-container text-sm font-extrabold shadow-[0_0_20px_rgba(124,58,237,0.2)] hover:shadow-[0_0_30px_rgba(34,211,238,0.3)] transition-all flex items-center justify-center gap-2"
+              >
+                Proceed to Dashboard
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            </div>
+          </motion.aside>
+        )}
       </div>
     </motion.div>
   );
 }
 
-function SliderItem({ label }: { label: string }) {
+function SliderItem({ label, isLoggedIn, router }: { label: string; isLoggedIn: boolean; router: any }) {
   const [value, setValue] = useState(50);
   const levels = ["Beginner", "Basic", "Intermediate", "Advanced", "Expert"];
   const levelIndex = Math.min(Math.floor(value / 20), 4);
@@ -362,6 +420,9 @@ function SliderItem({ label }: { label: string }) {
         max="100"
         value={value}
         onChange={(e) => setValue(+e.target.value)}
+        onClick={() => {
+          if (!isLoggedIn) router.push("/login");
+        }}
         className="w-full h-1.5 bg-surface-variant rounded-lg appearance-none cursor-pointer custom-slider"
         style={{ background: `linear-gradient(to right, #7c3aed ${value}%, #2f3445 ${value}%)` }}
       />

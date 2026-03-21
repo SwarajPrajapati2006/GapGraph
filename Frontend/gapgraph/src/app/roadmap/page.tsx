@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { modules } from "@/lib/data";
+import { modules as staticModules } from "@/lib/data";
 import { useApp } from "@/lib/context";
 import { useToast } from "@/components/Toast";
 
@@ -12,17 +12,38 @@ const priorityColors: Record<string, { bg: string; text: string; label: string; 
   low: { bg: "bg-emerald-400/10", text: "text-emerald-400", label: "Optional", border: "border-emerald-400" },
 };
 
+const diffColors: Record<string, typeof priorityColors["critical"]> = {
+  beginner: priorityColors.low,
+  intermediate: priorityColors.medium,
+  advanced: priorityColors.critical,
+};
+
 const phaseBorders = ["border-[#FBBF24]", "border-primary-container", "border-secondary"];
 
 export default function RoadmapPage() {
   const router = useRouter();
-  const { completedModules, overallProgress, toggleModule } = useApp();
+  const { completedModules, overallProgress, toggleModule, analysisResult } = useApp();
   const { showToast } = useToast();
 
+  // Prefer dynamic modules from backend if analysis has run, else fallback to static demo
+  const isDynamic = !!analysisResult;
+  let rawModules = analysisResult?.learningPath?.nodes || staticModules;
+  
+  // Assign fake IDs and phases if using dynamic data
+  const modules = isDynamic ? rawModules.map((m: any, i: number) => ({
+    ...m,
+    id: i + 1,
+    phase: i < 2 ? 1 : i < 4 ? 2 : 3,
+    hours: m.durationHours || 10,
+    priority: m.difficulty === "beginner" ? "low" : m.difficulty === "intermediate" ? "medium" : "critical",
+    category: m.skillsCovered[0] || "Foundations",
+    resources: m.resources || []
+  })) : rawModules;
+
   const phases = [
-    { num: 1, title: "Phase 1: Critical Foundations", subtitle: "Week 1-2" },
-    { num: 2, title: "Phase 2: Engineering Practices", subtitle: "Week 3-4" },
-    { num: 3, title: "Phase 3: Specialization", subtitle: "Month 2" },
+    { num: 1, title: "Phase 1: Critical Foundations", subtitle: isDynamic ? "Fundamentals" : "Week 1-2" },
+    { num: 2, title: "Phase 2: Core Engineering", subtitle: isDynamic ? "Intermediate Methods" : "Week 3-4" },
+    { num: 3, title: "Phase 3: Advanced Topics", subtitle: isDynamic ? "Specialization" : "Month 2" },
   ];
 
   return (
@@ -35,9 +56,13 @@ export default function RoadmapPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold text-primary-container tracking-tight mb-2">Learning Roadmap</h1>
+          <h1 className="text-4xl font-extrabold text-primary-container tracking-tight mb-2">
+            {isDynamic ? "Your AI-Generated Roadmap" : "Demo Learning Roadmap"}
+          </h1>
           <p className="text-on-surface-variant text-sm max-w-md">
-            Precision engineering path calibrated for Infrastructure Scalability and Cloud Native compliance.
+            {isDynamic 
+              ? `Personalized pathway based on ${analysisResult.skillGaps.length} identified skill gaps from your profile.`
+              : "Precision engineering path calibrated for Infrastructure Scalability and Cloud Native compliance."}
           </p>
         </div>
         <div className="flex gap-3">
@@ -128,7 +153,9 @@ export default function RoadmapPage() {
       {/* Roadmap Phases */}
       <div className="space-y-16">
         {phases.map((phase, pi) => {
-          const phaseModules = modules.filter((m) => m.phase === phase.num);
+          const phaseModules = modules.filter((m: any) => m.phase === phase.num);
+          if (phaseModules.length === 0) return null;
+          
           return (
             <section key={phase.num}>
               <div className="flex items-center gap-4 mb-8">
@@ -144,9 +171,10 @@ export default function RoadmapPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {phaseModules.map((mod, mi) => {
+                {phaseModules.map((mod: any, mi: number) => {
                   const isDone = completedModules.has(mod.id);
-                  const p = priorityColors[mod.priority];
+                  const p = priorityColors[mod.priority] || diffColors[mod.difficulty] || priorityColors.medium;
+                  
                   return (
                     <motion.div
                       key={mod.id}
@@ -156,6 +184,7 @@ export default function RoadmapPage() {
                       className={`bg-surface-container rounded-xl p-5 border-l-4 ${phaseBorders[pi] || "border-primary"} flex flex-col justify-between group hover:bg-surface-container-high transition-all`}
                     >
                       <div>
+                        {/* Status Bar */}
                         <div className="flex justify-between items-start mb-4">
                           <div className="w-10 h-10 bg-primary-container/30 rounded-lg flex items-center justify-center">
                             <span className="material-symbols-outlined text-primary-fixed-dim text-sm">
@@ -178,12 +207,14 @@ export default function RoadmapPage() {
                             )}
                           </button>
                         </div>
+                        
                         <h4
                           className={`font-bold text-on-surface mb-1 cursor-pointer hover:text-primary-fixed-dim transition-colors ${isDone ? "line-through opacity-60" : ""}`}
                           onClick={() => router.push(`/module/${mod.id}`)}
                         >
                           {mod.title}
                         </h4>
+                        
                         <div className="flex items-center gap-3 mb-4">
                           <span className="text-[10px] text-on-surface-variant font-mono">{mod.hours} Hours</span>
                           <span className={`${p.bg} ${p.text} text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider`}>
@@ -191,15 +222,17 @@ export default function RoadmapPage() {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Curated YouTube Resources */}
                       <div className="space-y-2">
-                        {mod.resources.slice(0, 2).map((r) => (
+                        {mod.resources && mod.resources.slice(0, 2).map((r: any) => (
                           <button
                             key={r.title}
                             onClick={() => router.push(`/module/${mod.id}`)}
-                            className="w-full py-2 bg-surface-container-lowest hover:bg-surface-container-highest rounded-lg text-[10px] font-medium transition-colors text-left px-3 flex items-center justify-between group"
+                            className="w-full py-2 bg-surface-container-lowest hover:bg-surface-container-highest rounded-lg text-[10px] font-medium transition-colors text-left px-3 flex items-center justify-between group/res"
                           >
-                            {r.title}
-                            <span className="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-100">launch</span>
+                            <span className="truncate pr-2">{r.title}</span>
+                            <span className="material-symbols-outlined text-[12px] opacity-0 group-hover/res:opacity-100 shrink-0 text-red-500">smart_display</span>
                           </button>
                         ))}
                       </div>

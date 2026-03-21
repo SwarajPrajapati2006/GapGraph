@@ -13,6 +13,8 @@ interface AppContextType {
   isLoggedIn: boolean;
   login: () => void;
   logout: () => void;
+  analysisResult: any;
+  setAnalysisResult: (result: any) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -22,9 +24,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedRole, setSelectedRole] = useState("Software Engineer");
   const [uploadedFiles, setUploadedFiles] = useState<{ resume: File | null; jd: File | null }>({ resume: null, jd: null });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
 
-  const totalModules = 7;
-  const overallProgress = Math.round((completedModules.size / totalModules) * 100);
+  const totalModules = analysisResult?.learningPath?.nodes?.length || 7;
+  const overallProgress = Math.round((completedModules.size / Math.max(1, totalModules)) * 100);
 
   const toggleModule = useCallback((id: number) => {
     setCompletedModules((prev) => {
@@ -42,6 +45,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setIsLoggedIn(false);
     setCompletedModules(new Set());
+    setAnalysisResult(null);
   };
 
   return (
@@ -57,6 +61,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isLoggedIn,
         login,
         logout,
+        analysisResult,
+        setAnalysisResult,
       }}
     >
       {children}
