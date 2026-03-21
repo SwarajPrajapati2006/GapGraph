@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { user, existingSkills as staticSkills, skillGaps as staticGaps, analyticsData as staticAnalytics } from "@/lib/data";
+import { user as dummyUser, existingSkills as staticSkills, skillGaps as staticGaps, analyticsData as staticAnalytics } from "@/lib/data";
 import { useApp } from "@/lib/context";
 import {
   Chart as ChartJS,
@@ -33,7 +33,7 @@ const priorityColors: Record<string, { bg: string; text: string; label: string }
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { analysisResult } = useApp();
+  const { analysisResult, user } = useApp();
   const [mounted, setMounted] = useState(false);
   const [animatedScore, setAnimatedScore] = useState(0);
 
@@ -62,7 +62,7 @@ export default function DashboardPage() {
   // Derive simple counts
   const matchedCount = existingSkills.length;
   const criticalCount = skillGaps.filter((g: any) => g.priority === "critical").length;
-  const targetScore = isDynamic ? Math.max(10, 100 - (criticalCount * 15)) : user.readinessScore;
+  const targetScore = isDynamic ? Math.max(10, 100 - (criticalCount * 15)) : dummyUser.readinessScore;
 
   useEffect(() => {
     setTimeout(() => setMounted(true), 0);
@@ -228,19 +228,33 @@ export default function DashboardPage() {
             <span>Back to Upload</span>
           </div>
           <h1 className="text-4xl font-extrabold text-primary-container tracking-tight">
-            Skill Gap Report / {user.targetRole}
+            Skill Gap Report / {dummyUser.targetRole}
           </h1>
           <p className="text-on-surface-variant">
-            Welcome back, <span className="text-secondary font-bold">{user.name}</span> from {user.company}
+            {user ? (
+              <>Welcome back, <span className="text-secondary font-bold">{user.name}</span></>
+            ) : (
+              <>Viewing as Guest. <span className="text-secondary font-bold">Sign up</span> to save your progress.</>
+            )}
           </p>
         </div>
-        <div className="flex gap-4">
-          <button onClick={() => router.push("/upload")} className="px-6 py-3 rounded-xl border border-outline-variant hover:bg-surface-container-high transition-all text-sm font-semibold flex items-center gap-2">
+        <div className="flex flex-wrap gap-4">
+          {!user && (
+            <>
+              <button onClick={() => router.push("/login")} className="px-6 py-3 rounded-xl border border-primary text-primary hover:bg-primary/10 transition-all text-sm font-bold flex items-center gap-2">
+                Log In
+              </button>
+              <button onClick={() => router.push("/signup")} className="px-6 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all text-sm font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+                Sign Up
+              </button>
+            </>
+          )}
+          <button onClick={() => router.push("/upload")} className="px-6 py-3 rounded-xl border border-outline-variant hover:bg-surface-container-high transition-all text-sm font-semibold flex items-center gap-2 hidden md:flex">
             <span className="material-symbols-outlined text-sm">refresh</span>
-            Re-upload Resume
+            Re-upload
           </button>
           <button onClick={() => router.push("/roadmap")} className="px-8 py-3 rounded-xl pulse-gradient text-white font-bold text-sm shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:scale-105 transition-all flex items-center gap-2">
-            View My Roadmap
+            Roadmap
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
         </div>
