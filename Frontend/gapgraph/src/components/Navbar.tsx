@@ -13,12 +13,8 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { overallProgress, isLoggedIn, profileImage, user } = useApp();
+  const { overallProgress, isLoggedIn } = useApp();
   const readiness = 74 + Math.round(overallProgress * 0.26);
-
-  const avatarInitials = user?.name 
-    ? user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2) 
-    : "ME";
 
   return (
     <>
@@ -66,12 +62,8 @@ export default function Navbar() {
                   Live Readiness: {readiness}%
                 </span>
               </div>
-              <Link href="/profile" className="w-9 h-9 rounded-full bg-primary-container hover:scale-105 transition-transform flex items-center justify-center text-sm font-bold text-on-primary-container shadow-[0_0_15px_rgba(124,58,237,0.3)] overflow-hidden">
-                {profileImage ? (
-                  <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  avatarInitials
-                )}
+              <Link href="/profile" className="w-9 h-9 rounded-full bg-primary-container hover:scale-105 transition-transform flex items-center justify-center text-on-primary-container shadow-[0_0_15px_rgba(124,58,237,0.3)] overflow-hidden">
+                <span className="material-symbols-outlined text-lg">person</span>
               </Link>
             </>
           ) : (

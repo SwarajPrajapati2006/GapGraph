@@ -9,16 +9,17 @@ import { useRef } from "react";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isLoggedIn, logout, selectedRole, setSelectedRole, profileImage, setProfileImage, user: contextUser } = useApp();
+  const { isLoggedIn, logout, selectedRole, setSelectedRole } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: contextUser?.name || mockUser.name,
+    name: mockUser.name,
     company: "GapGraph User",
-    role: contextUser?.role || selectedRole,
+    role: selectedRole,
     experience: mockUser.experience,
-    email: contextUser?.email || "hello@gapgraph.io", 
+    email: "hello@gapgraph.io", 
     phone: "Not provided"
   });
 

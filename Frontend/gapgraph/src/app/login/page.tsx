@@ -30,7 +30,7 @@ export default function LoginPage() {
         throw new Error(data.details ? `${data.error}: ${data.details}` : (data.error || "Login failed"));
       }
 
-      login(data.user);
+      login();
       router.push("/upload");
     } catch (error: any) {
       alert(error.message);
